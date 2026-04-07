@@ -200,10 +200,20 @@ def classify_email(
     important_score = si_imp * 0.40 + su_imp * 0.35 + bo_imp * 0.25
     marketing_score = si_mkt * 0.40 + su_mkt * 0.35 + bo_mkt * 0.25
 
-    if important_score > 0.6:
+    important_above_threshold = important_score > 0.6
+    marketing_above_threshold = marketing_score > 0.6
+
+    if important_above_threshold and marketing_above_threshold:
+        if important_score >= marketing_score:
+            label = "Important"
+            confidence = round(important_score, 4)
+        else:
+            label = "Marketing"
+            confidence = round(marketing_score, 4)
+    elif important_above_threshold:
         label = "Important"
         confidence = round(important_score, 4)
-    elif marketing_score > 0.6:
+    elif marketing_above_threshold:
         label = "Marketing"
         confidence = round(marketing_score, 4)
     else:
