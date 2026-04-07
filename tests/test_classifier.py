@@ -25,16 +25,16 @@ def test_clear_marketing_email():
     assert result["confidence"] > 0.6, f"Low confidence: {result['confidence']}"
 
 
-def test_clear_important_email():
-    """KFUPM registrar + deadline subject + personalised body → Important."""
+def test_blackboard_grade_notification():
+    """Real KFUPM Blackboard grade email must classify as Important."""
     result = classify_email(
-        sender="registrar@kfupm.edu.sa",
-        subject="Urgent: Registration deadline is tomorrow",
-        body_preview="Dear Ahmad, your tuition payment is required before the deadline.",
-        recipient_name="Ahmad",
+        sender="do-not-reply@blackboard.com",
+        subject="New grade and feedback for Quiz 3 in 252-ICS-353-01(Design/Analysis of Algorithms)",
+        body_preview="New grade and feedback. Quiz 3. Assessment. View grades. Want to change how you receive these emails? Manage your notification settings.",
+        recipient_name=None,
     )
     assert result["label"] == "Important", f"Expected Important, got {result}"
-    assert result["confidence"] > 0.6, f"Low confidence: {result['confidence']}"
+    assert result["confidence"] >= 0.6, f"Confidence too low: {result}"
 
 
 def test_ambiguous_email():
@@ -158,7 +158,7 @@ def test_batch_size_respected():
 if __name__ == "__main__":
     tests = [
         test_clear_marketing_email,
-        test_clear_important_email,
+        test_blackboard_grade_notification,
         test_ambiguous_email,
         test_kfupm_registrar_email,
         test_kfupm_non_official_email,

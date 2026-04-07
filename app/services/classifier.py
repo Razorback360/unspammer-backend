@@ -33,6 +33,16 @@ KFUPM_IMPORTANT_LOCAL = {
     "dean",
     "admission",
     "finance",
+    "noreply",
+    "blackboard",
+    "lms",
+}
+
+TRUSTED_ACADEMIC_PLATFORMS = {
+    "blackboard.com",
+    "blackboard.kfupm.edu.sa",
+    "instructure.com",
+    "canvas.com",
 }
 
 IMPORTANT_SUBJECT_KEYWORDS = [
@@ -52,6 +62,12 @@ IMPORTANT_SUBJECT_KEYWORDS = [
     "registration",
     "tuition",
     "transcript",
+    "feedback",
+    "quiz",
+    "assignment",
+    "course",
+    "submission",
+    "score",
 ]
 
 MARKETING_SUBJECT_KEYWORDS = [
@@ -94,6 +110,11 @@ def _sender_signal(sender: str) -> tuple[float, float]:
     sender = sender.lower().strip()
     domain = sender.split("@", 1)[1] if "@" in sender else sender
     local = sender.split("@")[0] if "@" in sender else ""
+
+    # Trusted academic platforms take priority
+    for platform in TRUSTED_ACADEMIC_PLATFORMS:
+        if domain == platform or domain.endswith("." + platform):
+            return 0.85, 0.1
 
     if _is_mass_mail_domain(domain):
         return 0.1, 0.9
