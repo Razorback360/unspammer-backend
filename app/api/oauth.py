@@ -17,13 +17,8 @@ router = APIRouter()
 def token_exchange(payload: OAuthTokenExchange, db: DbSession):
     """Exchange a Microsoft authorization code for tokens and link them to the given FCM device."""
     try:
-        # Pass the code_verifier if your Flutter PKCE flow is sending it
         oauth_account, _ = exchange_ms_code(
-            db, 
-            payload.fcm_token_id, 
-            payload.code, 
-            payload.redirect_uri,
-            getattr(payload, "code_verifier", None)
+            db, payload.fcm_token_id, payload.code, payload.redirect_uri
         )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))

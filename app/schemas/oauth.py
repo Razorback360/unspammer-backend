@@ -8,7 +8,6 @@ class OAuthTokenExchange(BaseModel):
     fcm_token_id: str
     code: str
     redirect_uri: str
-    code_verifier: Optional[str] = None
 
 
 class OAuthRefreshRequest(BaseModel):
