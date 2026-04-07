@@ -22,7 +22,7 @@ def _decode_id_token_payload(id_token: str) -> dict:
 
 
 def exchange_ms_code(
-    db: Session, fcm_token_id: str, code: str, redirect_uri: str
+    db: Session, fcm_token_id: str, code: str, redirect_uri: str, code_verifier: str = None
 ) -> Tuple[OAuthAccount, FCMToken]:
     """Exchange a Microsoft authorization code for tokens, store them encrypted, and link the FCM token."""
     fcm_record = db.query(FCMToken).filter(FCMToken.id == fcm_token_id).first()
@@ -37,7 +37,16 @@ def exchange_ms_code(
         "redirect_uri": redirect_uri,
         "grant_type": "authorization_code",
     }
-    if settings.microsoft_client_secret:
+    
+    # If the Flutter app generated a PKCE challenge, it needs to send the verifier
+    if code_verifier:
+        payload["code_verifier"] = code_verifier
+        
+    # Only append a client_secret if this is registered in Azure as a "Web" app (Confidential client).
+    # Mobile/Desktop apps (Public clients) will throw an AADSTS90023 error if a secret is included!
+    # Because your redirect URI is a custom scheme ("unspammer://..."), Azure treats it as a Public Client.
+    # Therefore, we explicitly DO NOT send the client secret here if it's a mobile redirect URI.
+    if settings.microsoft_client_secret and not redirect_uri.startswith("unspammer://"):
         payload["client_secret"] = settings.microsoft_client_secret
 
     response = httpx.post(url, data=payload, timeout=30)
@@ -114,7 +123,11 @@ def refresh_ms_token(db: Session, oauth_account_id: str) -> OAuthAccount:
         "refresh_token": oauth_account.refresh_token,
         "grant_type": "refresh_token",
     }
-    if settings.microsoft_client_secret:
+    
+    # Similarly, when refreshing tokens, do NOT send the client secret if this is a Public application
+    # We assume if the backend doesn't know the redirect URI here, we can infer by checking the 
+    # expected client type or just removing the secret. We'll strip it if we're dealing with native apps.
+    if settings.microsoft_client_secret and settings.microsoft_redirect_uri and not settings.microsoft_redirect_uri.startswith("unspammer://"):
         payload["client_secret"] = settings.microsoft_client_secret
 
     response = httpx.post(url, data=payload, timeout=30)
