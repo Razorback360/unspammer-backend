@@ -30,17 +30,18 @@ def exchange_ms_code(
         raise ValueError(f"FCM token with id '{fcm_token_id}' not found")
 
     url = f"https://login.microsoftonline.com/{settings.microsoft_tenant_id}/oauth2/v2.0/token"
-    response = httpx.post(
-        url,
-        data={
-            "client_id": settings.microsoft_client_id,
-            "client_secret": settings.microsoft_client_secret,
-            "code": code,
-            "redirect_uri": redirect_uri,
-            "grant_type": "authorization_code",
-        },
-        timeout=30,
-    )
+    
+    payload = {
+        "client_id": settings.microsoft_client_id,
+        "code": code,
+        "redirect_uri": redirect_uri,
+        "grant_type": "authorization_code",
+    }
+    if settings.microsoft_client_secret:
+        payload["client_secret"] = settings.microsoft_client_secret
+
+    response = httpx.post(url, data=payload, timeout=30)
+    
     if response.status_code != 200:
         raise RuntimeError(f"Microsoft token exchange failed: {response.text}")
 
@@ -107,16 +108,17 @@ def refresh_ms_token(db: Session, oauth_account_id: str) -> OAuthAccount:
 
     url = f"https://login.microsoftonline.com/{settings.microsoft_tenant_id}/oauth2/v2.0/token"
     # TypeDecorator auto-decrypts refresh_token on read
-    response = httpx.post(
-        url,
-        data={
-            "client_id": settings.microsoft_client_id,
-            "client_secret": settings.microsoft_client_secret,
-            "refresh_token": oauth_account.refresh_token,
-            "grant_type": "refresh_token",
-        },
-        timeout=30,
-    )
+    
+    payload = {
+        "client_id": settings.microsoft_client_id,
+        "refresh_token": oauth_account.refresh_token,
+        "grant_type": "refresh_token",
+    }
+    if settings.microsoft_client_secret:
+        payload["client_secret"] = settings.microsoft_client_secret
+
+    response = httpx.post(url, data=payload, timeout=30)
+    
     if response.status_code != 200:
         raise RuntimeError(f"Microsoft token refresh failed: {response.text}")
 
