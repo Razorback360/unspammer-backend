@@ -11,6 +11,8 @@ Signal model:
 
 from __future__ import annotations
 
+import re
+
 MASS_MAIL_KEYWORDS = {
     "mailchimp",
     "sendgrid",
@@ -179,6 +181,25 @@ def _body_signal(body: str, recipient_name: str | None) -> tuple[float, float]:
 
     return important_score, marketing_score
 
+def extract_event_date(subject: str, body_preview: str) -> str:
+    """Extract dates from subject and body. Handles various common formats."""
+    text = f"{subject} {body_preview}"
+    
+    # 1. YYYY-MM-DD, YYYY/MM/DD
+    pattern1 = r'\b(20\d{2}[-/.]\d{1,2}[-/.]\d{1,2})\b'
+    # 2. DD/MM/YYYY, DD-MM-YYYY, MM/DD/YYYY, with or without 4-digit year
+    pattern2 = r'\b(\d{1,2}[-/.]\d{1,2}[-/.](?:20\d{2}|\d{2}))\b'
+    # 3. Month DD, YYYY or Month DD
+    pattern3 = r'\b((?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+\d{1,2}(?:st|nd|rd|th)?(?:,?\s*20\d{2})?)\b'
+    # 4. DD Month YYYY
+    pattern4 = r'\b(\d{1,2}(?:st|nd|rd|th)?\s+(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)(?:,?\s*20\d{2})?)\b'
+    
+    for pattern in [pattern1, pattern2, pattern3, pattern4]:
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            return match.group(1).strip()
+            
+    return ""
 
 def classify_email(
     sender: str,
@@ -192,6 +213,28 @@ def classify_email(
     Returns:
         {"label": "Important" | "Marketing" | "Other", "confidence": float}
     """
+    sender_lower = sender.lower()
+    subject_lower = subject.lower()
+    body_lower = body_preview.lower()
+
+    # High-priority rules override
+    important_keywords = ["exam", "project", "quiz", "assignment", "registration"]
+    important_senders = [
+        "blackboard", "registrar", "edesk", "gradescope", 
+        "teams", "part-time-jobs", "evaluate", "amn", "registr"
+    ]
+    
+    extracted_date = extract_event_date(subject, body_preview)
+
+    if any(kw in sender_lower for kw in important_senders):
+        return {"label": "Important", "confidence": 1.0, "event_date": extracted_date}
+
+    if any(kw in subject_lower for kw in important_keywords) or "blackboard" in subject_lower:
+        return {"label": "Important", "confidence": 1.0, "event_date": extracted_date}
+
+    if any(kw in body_lower for kw in important_keywords) or "blackboard" in body_lower:
+        return {"label": "Important", "confidence": 1.0, "event_date": extracted_date}
+
     si_imp, si_mkt = _sender_signal(sender)
     su_imp, su_mkt = _subject_signal(subject)
     bo_imp, bo_mkt = _body_signal(body_preview, recipient_name)
@@ -208,16 +251,16 @@ def classify_email(
             label = "Important"
             confidence = round(important_score, 4)
         else:
-            label = "Marketing"
+            label = "Unimportant"
             confidence = round(marketing_score, 4)
     elif important_above_threshold:
         label = "Important"
         confidence = round(important_score, 4)
     elif marketing_above_threshold:
-        label = "Marketing"
+        label = "Unimportant"
         confidence = round(marketing_score, 4)
     else:
-        label = "Other"
+        label = "Unimportant"
         confidence = round(1.0 - max(important_score, marketing_score), 4)
 
-    return {"label": label, "confidence": confidence}
+    return {"label": label, "confidence": confidence, "event_date": extracted_date}

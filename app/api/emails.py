@@ -6,6 +6,7 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException, status
 from pydantic import BaseModel
 
 from app.models.email_sync import EmailSync
+from app.services.classifier import classify_email
 from app.utils.dependencies import DbSession
 from app.utils.encryption import encrypt_for_device
 
@@ -97,15 +98,21 @@ def get_email(message_id: str, device_id: str, db: DbSession):
     # bodyPreview is the first ~255 characters — a natural summary.
     summary = data.get("bodyPreview", "")
 
-    # Stub: heuristics will be wired in from the heuristics branch.
-    logger.info("Heuristics ran for message %s (stub).", message_id)
+    # Run heuristic classification
+    classification_result = classify_email(
+        sender=from_address,
+        subject=subject,
+        body_preview=body
+    )
+    logger.info("Heuristics ran for message %s: Result %s", message_id, classification_result)
 
     email_payload = {
         "from_address": from_address,
         "body": body,
         "subject": subject,
         "summary": summary,
-        "classification": "not_important",
+        "classification": classification_result["label"],
+        "event_date": classification_result.get("event_date", ""),
     }
 
     encrypted = encrypt_for_device(
