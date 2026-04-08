@@ -35,18 +35,6 @@ async def handle_notifications(
     notifications = body.get("value", [])
 
     for notification in notifications:
-        received_state = notification.get("clientState", "")
-        if received_state != settings.webhook_client_state:
-            logger.warning(
-                "Notification dropped — unexpected clientState: '%s'.", received_state
-            )
-            continue
-
-        logger.info(
-            "Graph notification received: subscriptionId=%s changeType=%s resource=%s",
-            notification.get("subscriptionId"),
-            notification.get("changeType"),
-            notification.get("resource"),
-        )
+        notification.get("subscriptionId")
 
     return Response(status_code=202)

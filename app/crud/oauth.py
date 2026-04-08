@@ -102,18 +102,6 @@ def exchange_ms_code(
     db.commit()
     db.refresh(oauth_account)
     db.refresh(fcm_record)
-
-    # Best-effort: create the Graph inbox subscription for this account.
-    # Failure must not break the login flow — the scheduler will retry later.
-    if settings.webhook_notification_url:
-        try:
-            from app.crud.subscription import create_graph_subscription
-            create_graph_subscription(db, oauth_account)
-        except Exception:
-            logger.exception(
-                "Failed to create Graph subscription for OAuth account %s.", oauth_account.id
-            )
-
     return oauth_account, fcm_record
 
 
