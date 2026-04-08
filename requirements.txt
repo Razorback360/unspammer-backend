@@ -11,3 +11,4 @@ python-jose
 passlib[bcrypt]
 cryptography
 pydantic-settings
+apscheduler>=3.10
