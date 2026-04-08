@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     webhook_notification_url: str = ""
     webhook_client_state: str = "secretClientValue"
 
+    # Firebase Admin SDK — path to service-account JSON file.
+    # Leave empty to skip FCM sending (notifications will only be logged).
+    firebase_service_account: str = ""
+
     model_config = SettingsConfigDict(env_file=".env")
 
 
