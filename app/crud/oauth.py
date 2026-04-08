@@ -1,7 +1,8 @@
 import base64
 import json
+import logging
 from datetime import datetime, timedelta, timezone
-from typing import Tuple
+from typing import Optional, Tuple
 
 import httpx
 from sqlalchemy.orm import Session
@@ -9,6 +10,8 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.models.device import FCMToken
 from app.models.oauth import OAuthAccount
+
+logger = logging.getLogger(__name__)
 
 
 def _decode_id_token_payload(id_token: str) -> dict:
@@ -22,7 +25,7 @@ def _decode_id_token_payload(id_token: str) -> dict:
 
 
 def exchange_ms_code(
-    db: Session, fcm_token_id: str, code: str, redirect_uri: str
+    db: Session, fcm_token_id: str, code: str, redirect_uri: str, code_verifier: Optional[str] = None
 ) -> Tuple[OAuthAccount, FCMToken]:
     """Exchange a Microsoft authorization code for tokens, store them encrypted, and link the FCM token."""
     fcm_record = db.query(FCMToken).filter(FCMToken.id == fcm_token_id).first()
@@ -30,17 +33,27 @@ def exchange_ms_code(
         raise ValueError(f"FCM token with id '{fcm_token_id}' not found")
 
     url = f"https://login.microsoftonline.com/{settings.microsoft_tenant_id}/oauth2/v2.0/token"
-    response = httpx.post(
-        url,
-        data={
-            "client_id": settings.microsoft_client_id,
-            "client_secret": settings.microsoft_client_secret,
-            "code": code,
-            "redirect_uri": redirect_uri,
-            "grant_type": "authorization_code",
-        },
-        timeout=30,
-    )
+    
+    payload = {
+        "client_id": settings.microsoft_client_id,
+        "code": code,
+        "redirect_uri": redirect_uri,
+        "grant_type": "authorization_code",
+    }
+    
+    # If the Flutter app generated a PKCE challenge, it needs to send the verifier
+    if code_verifier:
+        payload["code_verifier"] = code_verifier
+        
+    # Only append a client_secret if this is registered in Azure as a "Web" app (Confidential client).
+    # Mobile/Desktop apps (Public clients) will throw an AADSTS90023 error if a secret is included!
+    # Because your redirect URI is a custom scheme ("unspammer://..."), Azure treats it as a Public Client.
+    # Therefore, we explicitly DO NOT send the client secret here if it's a mobile redirect URI.
+    if settings.microsoft_client_secret and not redirect_uri.startswith("unspammer://"):
+        payload["client_secret"] = settings.microsoft_client_secret
+
+    response = httpx.post(url, data=payload, timeout=30)
+    
     if response.status_code != 200:
         raise RuntimeError(f"Microsoft token exchange failed: {response.text}")
 
@@ -107,16 +120,21 @@ def refresh_ms_token(db: Session, oauth_account_id: str) -> OAuthAccount:
 
     url = f"https://login.microsoftonline.com/{settings.microsoft_tenant_id}/oauth2/v2.0/token"
     # TypeDecorator auto-decrypts refresh_token on read
-    response = httpx.post(
-        url,
-        data={
-            "client_id": settings.microsoft_client_id,
-            "client_secret": settings.microsoft_client_secret,
-            "refresh_token": oauth_account.refresh_token,
-            "grant_type": "refresh_token",
-        },
-        timeout=30,
-    )
+    
+    payload = {
+        "client_id": settings.microsoft_client_id,
+        "refresh_token": oauth_account.refresh_token,
+        "grant_type": "refresh_token",
+    }
+    
+    # Similarly, when refreshing tokens, do NOT send the client secret if this is a Public application
+    # We assume if the backend doesn't know the redirect URI here, we can infer by checking the 
+    # expected client type or just removing the secret. We'll strip it if we're dealing with native apps.
+    if settings.microsoft_client_secret and settings.microsoft_redirect_uri and not settings.microsoft_redirect_uri.startswith("unspammer://"):
+        payload["client_secret"] = settings.microsoft_client_secret
+
+    response = httpx.post(url, data=payload, timeout=30)
+    
     if response.status_code != 200:
         raise RuntimeError(f"Microsoft token refresh failed: {response.text}")
 

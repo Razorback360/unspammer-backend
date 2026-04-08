@@ -1,6 +1,6 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Response, status
 
-from app.crud.device import create_fcm_token, delete_fcm_token, update_fcm_token
+from app.crud.device import create_fcm_token, delete_fcm_token, get_fcm_token_by_id, update_fcm_token
 from app.schemas.device import FCMTokenRegister, FCMTokenResponse, FCMTokenUpdate
 from app.utils.dependencies import DbSession
 
@@ -18,12 +18,14 @@ def register_device(payload: FCMTokenRegister, db: DbSession):
 @router.put("/{device_id}/fcm-token", response_model=FCMTokenResponse)
 def update_device_fcm_token(device_id: str, payload: FCMTokenUpdate, db: DbSession):
     """Replace the FCM token for an existing registered device."""
-    updated = update_fcm_token(db, device_id, payload.fcm_token, payload.public_key)
-    if not updated:
+    existing = get_fcm_token_by_id(db, device_id)
+    if not existing:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Device not found"
         )
-    return updated
+    if existing.fcm_token == payload.fcm_token and existing.public_key == payload.public_key:
+        return Response(status_code=status.HTTP_304_NOT_MODIFIED)
+    return update_fcm_token(db, device_id, payload.fcm_token, payload.public_key)
 
 
 @router.delete("/{device_id}", status_code=status.HTTP_204_NO_CONTENT)

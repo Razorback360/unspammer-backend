@@ -7,3 +7,5 @@ from app.models.user import User  # noqa: E402, F401
 from app.models.item import Item  # noqa: E402, F401
 from app.models.oauth import OAuthAccount  # noqa: E402, F401
 from app.models.device import FCMToken  # noqa: E402, F401
+from app.models.subscription import GraphSubscription  # noqa: E402, F401
+from app.models.email_sync import EmailSync  # noqa: E402, F401
