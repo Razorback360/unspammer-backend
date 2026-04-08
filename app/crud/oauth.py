@@ -1,7 +1,8 @@
 import base64
 import json
+import logging
 from datetime import datetime, timedelta, timezone
-from typing import Tuple
+from typing import Optional, Tuple
 
 import httpx
 from sqlalchemy.orm import Session
@@ -9,6 +10,8 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.models.device import FCMToken
 from app.models.oauth import OAuthAccount
+
+logger = logging.getLogger(__name__)
 
 
 def _decode_id_token_payload(id_token: str) -> dict:
@@ -22,7 +25,7 @@ def _decode_id_token_payload(id_token: str) -> dict:
 
 
 def exchange_ms_code(
-    db: Session, fcm_token_id: str, code: str, redirect_uri: str, code_verifier: str = None
+    db: Session, fcm_token_id: str, code: str, redirect_uri: str, code_verifier: Optional[str] = None
 ) -> Tuple[OAuthAccount, FCMToken]:
     """Exchange a Microsoft authorization code for tokens, store them encrypted, and link the FCM token."""
     fcm_record = db.query(FCMToken).filter(FCMToken.id == fcm_token_id).first()

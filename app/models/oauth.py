@@ -11,6 +11,7 @@ from app.utils.encryption import EncryptedString
 
 if TYPE_CHECKING:
     from app.models.device import FCMToken
+    from app.models.subscription import GraphSubscription
 
 
 class OAuthAccount(Base):
@@ -38,4 +39,7 @@ class OAuthAccount(Base):
 
     fcm_tokens: Mapped[List["FCMToken"]] = relationship(
         "FCMToken", back_populates="oauth_account"
+    )
+    subscriptions: Mapped[List["GraphSubscription"]] = relationship(
+        "GraphSubscription", back_populates="oauth_account", cascade="all, delete-orphan"
     )
