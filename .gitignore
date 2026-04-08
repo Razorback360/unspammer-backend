@@ -20,6 +20,9 @@ env/
 .env.*
 !.env.example
 
+# Firebase service account — contains private keys, never commit
+service-account.json
+
 # SQLite databases
 *.db
 *.sqlite3
