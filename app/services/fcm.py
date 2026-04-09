@@ -63,3 +63,31 @@ def send_new_email_notification(fcm_token: str, message_id: str) -> None:
             message_id,
             fcm_token,
         )
+
+
+def send_important_email_notification(fcm_token: str, subject: str) -> None:
+    """Send a visible FCM push notification for an email classified as Important.
+
+    The notification body is the email subject line.
+    """
+    if _firebase_app is None:
+        logger.debug("FCM not initialised — skipping important-email notification.")
+        return
+
+    try:
+        from firebase_admin import messaging
+
+        message = messaging.Message(
+            notification=messaging.Notification(
+                title="Important Email",
+                body=subject,
+            ),
+            data={"type": "important_email"},
+            token=fcm_token,
+        )
+        response = messaging.send(message)
+        logger.info("Important-email FCM notification sent → FCM response: %s", response)
+    except Exception:
+        logger.exception(
+            "Failed to send important-email FCM notification to token %s.", fcm_token
+        )
